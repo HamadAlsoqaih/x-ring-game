@@ -119,7 +119,7 @@ io.on('connection', socket => {
     room.target = { id: item.id, num: item.num, chosenBy: room.activePlayer };
     room.phase = 'draw';
     const searcher = room.players[1 - room.activePlayer];
-    room.message = `${searcher.name}, find ${item.num}, press Ring, then click it.`;
+    room.message = `${searcher.name}, find ${item.num}, tap it, then press Ring.`;
     emitRoom(room);
   });
 

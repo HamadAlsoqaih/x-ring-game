@@ -18,7 +18,7 @@ const grids = [document.getElementById('grid0'), document.getElementById('grid1'
 
 let myIndex = null;
 let state = null;
-let ringArmed = false;
+let selectedPileId = null;
 let dragging = false;
 let localFilled = [new Set(), new Set()];
 let lastRoomCode = '';
@@ -96,8 +96,13 @@ copyRoom.onclick = async () => {
 
 ringBtn.onclick = () => {
   if (!state || state.phase !== 'draw' || myIndex === state.activePlayer) return;
-  ringArmed = !ringArmed;
-  ringBtn.classList.toggle('armed', ringArmed);
+  if (!selectedPileId) {
+    statusEl.textContent = 'Tap the number first, then press the ring.';
+    ringBtn.classList.add('wrongRing');
+    setTimeout(() => ringBtn.classList.remove('wrongRing'), 450);
+    return;
+  }
+  socket.emit('foundNumber', { pileId: selectedPileId });
 };
 
 function canDraw() {
@@ -218,7 +223,7 @@ function renderPile() {
   const layout = computePileLayout(state.shape, items.length);
   items.forEach((item, i) => {
     const btn = document.createElement('button');
-    btn.className = `num ${item.used ? 'used' : ''}`;
+    btn.className = `num ${item.used ? 'used' : ''} ${selectedPileId === item.id ? 'selected' : ''}`;
     btn.textContent = item.num;
     const pos = layout[i];
     btn.style.left = `${pos.x}px`;
@@ -233,18 +238,15 @@ function renderPile() {
 function handleNumberClick(item, btn) {
   if (!state || item.used) return;
   if (state.phase === 'choose' && myIndex === state.activePlayer) {
+    selectedPileId = null;
     socket.emit('chooseNumber', { pileId: item.id });
     return;
   }
   if (state.phase === 'draw' && myIndex !== state.activePlayer) {
-    if (!ringArmed) {
-      btn.classList.add('wrong');
-      setTimeout(() => btn.classList.remove('wrong'), 500);
-      return;
-    }
-    socket.emit('foundNumber', { pileId: item.id });
-    ringArmed = false;
-    ringBtn.classList.remove('armed');
+    selectedPileId = item.id;
+    renderPile();
+    ringBtn.classList.add('armed');
+    statusEl.textContent = `Selected ${item.num}. Press the ring to confirm.`;
   }
 }
 
@@ -286,8 +288,10 @@ function render() {
 
   ringBtn.disabled = !(state.phase === 'draw' && myIndex !== state.activePlayer);
   if (ringBtn.disabled) {
-    ringArmed = false;
+    selectedPileId = null;
     ringBtn.classList.remove('armed');
+  } else {
+    ringBtn.classList.toggle('armed', Boolean(selectedPileId));
   }
 
   syncGridCounts(state.players);
@@ -296,7 +300,10 @@ function render() {
 }
 
 socket.on('roomState', next => {
+  const previousTargetId = state?.target?.id;
+  const previousPhase = state?.phase;
   state = next;
+  if (previousTargetId !== state.target?.id || previousPhase !== state.phase) selectedPileId = null;
   if (!state.players.some(p => p.xCount > 0)) localFilled = [new Set(), new Set()];
   render();
 });

@@ -1,25 +1,18 @@
 # X Ring Game
 
-A real-time 2-player online room game.
+A real-time 2-player online game with room codes.
 
-## Game idea
+## Rules
 
-- There are 2 players.
-- A pile has 30 random numbers from 0 to 99.
-- The active player chooses one number from the pile.
-- The active player draws X marks on their own 9x6 sheet using mouse or touch.
+- Two players join the same room.
+- There is a 9x6 sheet for each player.
+- The active player chooses a number from the pile.
+- The active player draws X marks on their own sheet as fast as possible by tapping/clicking/dragging.
 - The other player searches the pile.
-- When the searcher finds the number, they press the ring button, then click the correct number.
-- The turn switches.
-- The game ends when all numbers are used or a player fills all 54 squares.
-- The player with more X marks wins.
-
-## Tech stack
-
-- Node.js
-- Express
-- Socket.io
-- HTML/CSS/JavaScript
+- The searcher must tap the correct number first, then press the ring button to confirm.
+- The turn switches when the correct number is confirmed.
+- After all 30 numbers are used, the player with more X marks wins.
+- If a player fills all 54 squares, the game ends immediately.
 
 ## Run locally
 
@@ -34,24 +27,24 @@ Open:
 http://localhost:3000
 ```
 
-## How to play online locally
+## Play from different networks
 
-Open the game in two browser tabs or two devices on the same network.
+Deploy it online using Render, Railway, or another Node.js hosting service.
 
-Player 1 creates a room. Player 2 joins using the room code.
+### Render settings
 
-## Deploy
+- Build Command: `npm install`
+- Start Command: `npm start`
 
-You can upload this project to GitHub and deploy it on Render, Railway, or any Node.js hosting service.
+A `render.yaml` file is included for easier deployment.
 
-Start command:
+## GitHub upload
 
 ```bash
-npm start
-```
-
-Node version:
-
-```text
-18+
+git init
+git add .
+git commit -m "Initial X Ring game"
+git branch -M main
+git remote add origin https://github.com/YOUR_USERNAME/x-ring-game.git
+git push -u origin main
 ```

@@ -13,6 +13,7 @@
 }
 
 * { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
 body {
   margin: 0;
   min-height: 100vh;
@@ -25,8 +26,8 @@ body {
 }
 
 button, input { font: inherit; }
-button { cursor: pointer; border: 0; }
-.app { width: min(1500px, 96vw); margin: 0 auto; padding: 24px 0; }
+button { cursor: pointer; border: 0; -webkit-tap-highlight-color: transparent; }
+.app { width: min(1500px, 96vw); margin: 0 auto; padding: max(14px, env(safe-area-inset-top)) 0 max(16px, env(safe-area-inset-bottom)); }
 .hidden { display: none !important; }
 .card {
   background: var(--card);
@@ -81,6 +82,7 @@ input {
 .xgrid {
   user-select: none;
   touch-action: none;
+  overscroll-behavior: contain;
   display: grid;
   grid-template-columns: repeat(9, 1fr);
   grid-template-rows: repeat(6, minmax(40px, 1fr));
@@ -108,6 +110,7 @@ input {
 }
 .ring:disabled { filter: grayscale(1); opacity: .5; cursor: not-allowed; }
 .ring.armed { animation: pulse .7s infinite alternate; outline: 5px solid rgba(245,158,11,.28); }
+.ring.wrongRing { animation: shake .2s linear 2; }
 @keyframes pulse { from { transform: scale(1); } to { transform: scale(1.06); } }
 .pile {
   position: relative;
@@ -134,6 +137,7 @@ input {
   transition: transform .12s ease, background .12s ease;
 }
 .num:hover { transform: translate(-50%, -50%) scale(1.08); }
+.num.selected { background: #fff7ed; border-color: #f59e0b; outline: 5px solid rgba(245,158,11,.24); transform: translate(-50%, -50%) scale(1.08); }
 .num.used { background: rgba(22,163,74,.1); border-color: var(--ok); color: var(--ok); }
 .num.used::after {
   content: ""; position: absolute; inset: -7px; border: 4px solid var(--ok); border-radius: 50%;
@@ -148,10 +152,53 @@ input {
 }
 .winBanner > div { max-width: 460px; padding: 28px; text-align: center; }
 
-@media (max-width: 1050px) {
-  .scoreboard { grid-template-columns: 1fr; }
-  .pileCard { order: -1; }
-  .topbar { grid-template-columns: 1fr; text-align: center; }
+@media (min-width: 701px) and (max-width: 1180px) {
+  .app { width: min(980px, 96vw); }
+  .scoreboard {
+    grid-template-columns: 1fr 1fr;
+    align-items: start;
+  }
+  .pileCard {
+    order: -1;
+    grid-column: 1 / -1;
+  }
+  .pile { height: min(52vh, 520px); min-height: 420px; }
+  .cell { min-height: 52px; }
+}
+
+@media (max-width: 700px) {
+  body { background-attachment: fixed; }
+  .app { width: 100%; padding: 10px; }
+  .lobby { margin: 4vh auto; padding: 20px; border-radius: 20px; }
+  .brand { gap: 12px; }
+  .logo { width: 52px; height: 52px; border-radius: 16px; font-size: 30px; }
+  .joinBox { grid-template-columns: 1fr; }
+  .topbar {
+    grid-template-columns: 1fr;
+    text-align: center;
+    gap: 10px;
+    padding: 12px;
+    border-radius: 18px;
+    position: sticky;
+    top: 8px;
+    z-index: 4;
+  }
   .roomCode { margin-inline: auto; }
-  .pile { height: 460px; }
+  .status { font-size: 15px; line-height: 1.25; }
+  .scoreboard { grid-template-columns: 1fr; gap: 12px; }
+  .pileCard { order: -1; padding: 12px; border-radius: 18px; }
+  .playerCard { padding: 12px; border-radius: 18px; }
+  .pileHeader { align-items: start; }
+  .ring { width: 68px; height: 68px; min-width: 68px; font-size: 30px; }
+  .pile { height: 390px; min-height: 390px; border-radius: 20px; }
+  .num { min-width: 44px; min-height: 44px; font-size: 16px; box-shadow: 0 8px 18px rgba(31,35,48,.12); }
+  .xgrid { gap: 5px; grid-template-rows: repeat(6, minmax(36px, 1fr)); }
+  .cell { min-height: 38px; border-radius: 10px; font-size: 22px; }
+  .hint { font-size: 13px; }
+}
+
+@media (max-width: 380px) {
+  .pile { height: 350px; min-height: 350px; }
+  .num { min-width: 40px; min-height: 40px; font-size: 15px; }
+  .cell { min-height: 34px; font-size: 20px; }
 }
