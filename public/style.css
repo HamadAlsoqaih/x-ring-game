@@ -123,8 +123,9 @@ input {
 .num {
   position: absolute;
   transform: translate(-50%, -50%);
-  width: 54px; height: 54px; border-radius: 18px;
-  background: white;
+  min-width: 54px; min-height: 54px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #ffffff, #f6f8ff);
   border: 2px solid rgba(31,35,48,.16);
   display: grid; place-items: center;
   font-weight: 1000;

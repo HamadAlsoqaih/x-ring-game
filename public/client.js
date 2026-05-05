@@ -143,27 +143,88 @@ function syncGridCounts(players) {
   });
 }
 
-function pilePos(shape, idx, total) {
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(max, value));
+}
+
+function fits(px, py, placed, radius, width, height) {
+  if (px < radius || py < radius || px > width - radius || py > height - radius) return false;
+  for (const point of placed) {
+    const dx = point.x - px;
+    const dy = point.y - py;
+    if (Math.hypot(dx, dy) < radius * 2.05) return false;
+  }
+  return true;
+}
+
+function computePileLayout(shape, total) {
   const fn = shapeFns[shape] || shapeFns.spiral;
-  const t = total <= 1 ? 0 : idx / total;
-  let [x, y] = fn(t);
-  const jitterX = Math.sin((idx + 1) * 12.9898) * 3.8;
-  const jitterY = Math.cos((idx + 1) * 78.233) * 3.8;
-  x = Math.max(8, Math.min(92, x + jitterX));
-  y = Math.max(10, Math.min(90, y + jitterY));
-  return [x, y];
+  const rect = pileEl.getBoundingClientRect();
+  const width = Math.max(rect.width || pileEl.clientWidth || 560, 320);
+  const height = Math.max(rect.height || pileEl.clientHeight || 460, 320);
+  const radius = Math.max(24, Math.min(32, Math.min(width, height) / 11));
+  const placed = [];
+  const coords = [];
+
+  for (let i = 0; i < total; i++) {
+    const t = total <= 1 ? 0.5 : i / total;
+    const [bx, by] = fn(t);
+    const baseX = bx / 100 * width;
+    const baseY = by / 100 * height;
+    let point = null;
+
+    const seed = i + 1;
+    const maxRings = 22;
+    const triesPerRing = 18;
+
+    for (let ring = 0; ring <= maxRings && !point; ring++) {
+      const step = ring === 0 ? 0 : radius * 0.62;
+      const currentRadius = ring * step;
+      for (let stepIndex = 0; stepIndex < triesPerRing; stepIndex++) {
+        const angle = ((seed * 37 + stepIndex * 360 / triesPerRing) * Math.PI) / 180;
+        const px = clamp(baseX + Math.cos(angle) * currentRadius, radius, width - radius);
+        const py = clamp(baseY + Math.sin(angle) * currentRadius, radius, height - radius);
+        if (fits(px, py, placed, radius, width, height)) {
+          point = { x: px, y: py };
+          break;
+        }
+      }
+    }
+
+    if (!point) {
+      outer: for (let row = radius; row <= height - radius; row += radius * 1.6) {
+        for (let col = radius; col <= width - radius; col += radius * 1.6) {
+          if (fits(col, row, placed, radius, width, height)) {
+            point = { x: col, y: row };
+            break outer;
+          }
+        }
+      }
+    }
+
+    point ||= {
+      x: clamp(baseX, radius, width - radius),
+      y: clamp(baseY, radius, height - radius)
+    };
+    placed.push(point);
+    coords.push({ x: point.x, y: point.y, radius });
+  }
+  return coords;
 }
 
 function renderPile() {
   pileEl.innerHTML = '';
   const items = state.pile || [];
+  const layout = computePileLayout(state.shape, items.length);
   items.forEach((item, i) => {
     const btn = document.createElement('button');
     btn.className = `num ${item.used ? 'used' : ''}`;
     btn.textContent = item.num;
-    const [x, y] = pilePos(state.shape, i, items.length - 1);
-    btn.style.left = `${x}%`;
-    btn.style.top = `${y}%`;
+    const pos = layout[i];
+    btn.style.left = `${pos.x}px`;
+    btn.style.top = `${pos.y}px`;
+    btn.style.width = `${pos.radius * 2}px`;
+    btn.style.height = `${pos.radius * 2}px`;
     btn.onclick = () => handleNumberClick(item, btn);
     pileEl.appendChild(btn);
   });
@@ -242,4 +303,9 @@ socket.on('roomState', next => {
 socket.on('errorMessage', msg => {
   lobbyError.textContent = msg;
   if (state) statusEl.textContent = msg;
+});
+
+
+window.addEventListener('resize', () => {
+  if (state) renderPile();
 });
