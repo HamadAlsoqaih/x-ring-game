@@ -31,7 +31,13 @@ function makePile() {
 function publicRoom(room) {
   return {
     code: room.code,
-    players: room.players.map(p => ({ id: p.id, name: p.name, index: p.index, xCount: p.xCount })),
+    players: room.players.map(p => ({
+      id: p.id,
+      name: p.name,
+      index: p.index,
+      xCells: [...p.xCells],
+      xCount: p.xCells.size
+    })),
     pile: room.pile,
     shape: room.shape,
     activePlayer: room.activePlayer,
@@ -59,23 +65,46 @@ function resetRoom(room) {
   room.phase = room.players.length === 2 ? 'choose' : 'waiting';
   room.winner = null;
   room.message = room.players.length === 2 ? `${room.players[0].name} chooses a number.` : 'Waiting for player 2.';
-  room.players.forEach(p => { p.xCount = 0; });
+  room.players.forEach(p => { p.xCells = new Set(); });
 }
 
 function endGame(room, reason) {
   const p1 = room.players[0];
   const p2 = room.players[1];
   room.phase = 'ended';
-  if (p1.xCount > p2.xCount) room.winner = p1.index;
-  else if (p2.xCount > p1.xCount) room.winner = p2.index;
+  if (p1.xCells.size > p2.xCells.size) room.winner = p1.index;
+  else if (p2.xCells.size > p1.xCells.size) room.winner = p2.index;
   else room.winner = 'draw';
   room.message = reason;
+}
+
+function removePlayerFromRoom(socket) {
+  const room = getRoom(socket);
+  if (!room) return;
+  socket.leave(room.code);
+  room.players = room.players.filter(p => p.id !== socket.id);
+  socket.data.roomCode = null;
+  socket.data.playerIndex = null;
+
+  if (room.players.length === 0) {
+    rooms.delete(room.code);
+    return;
+  }
+
+  room.phase = 'waiting';
+  room.target = null;
+  room.winner = null;
+  room.activePlayer = 0;
+  room.message = 'Other player left. Waiting for a new player.';
+  room.players.forEach((p, i) => { p.index = i; p.xCells = new Set(); });
+  resetRoom(room);
+  emitRoom(room);
 }
 
 io.on('connection', socket => {
   socket.on('createRoom', ({ name }) => {
     const roomCode = code();
-    const player = { id: socket.id, name: (name || 'Player 1').slice(0, 18), index: 0, xCount: 0 };
+    const player = { id: socket.id, name: (name || 'Player 1').slice(0, 18), index: 0, xCells: new Set() };
     const room = {
       code: roomCode,
       players: [player],
@@ -100,7 +129,7 @@ io.on('connection', socket => {
     if (!room) return socket.emit('errorMessage', 'Room not found.');
     if (room.players.length >= 2) return socket.emit('errorMessage', 'Room is full.');
 
-    const player = { id: socket.id, name: (name || 'Player 2').slice(0, 18), index: 1, xCount: 0 };
+    const player = { id: socket.id, name: (name || 'Player 2').slice(0, 18), index: 1, xCells: new Set() };
     room.players.push(player);
     room.phase = 'choose';
     room.message = `${room.players[0].name} chooses a number.`;
@@ -123,14 +152,20 @@ io.on('connection', socket => {
     emitRoom(room);
   });
 
-  socket.on('addX', ({ count = 1 }) => {
+  socket.on('addX', ({ cellIndex }) => {
     const room = getRoom(socket);
     if (!room || room.phase !== 'draw' || room.winner !== null) return;
     const playerIndex = socket.data.playerIndex;
     if (playerIndex !== room.activePlayer) return;
+
+    const index = Number(cellIndex);
+    if (!Number.isInteger(index) || index < 0 || index >= 54) return;
+
     const player = room.players[playerIndex];
-    player.xCount = Math.min(54, player.xCount + Math.max(1, Math.min(Number(count) || 1, 3)));
-    if (player.xCount >= 54) endGame(room, `${player.name} filled the sheet.`);
+    if (player.xCells.has(index)) return;
+
+    player.xCells.add(index);
+    if (player.xCells.size >= 54) endGame(room, `${player.name} filled the sheet.`);
     emitRoom(room);
   });
 
@@ -164,20 +199,13 @@ io.on('connection', socket => {
     emitRoom(room);
   });
 
+  socket.on('leaveRoom', () => {
+    removePlayerFromRoom(socket);
+    socket.emit('leftRoom');
+  });
+
   socket.on('disconnect', () => {
-    const room = getRoom(socket);
-    if (!room) return;
-    room.players = room.players.filter(p => p.id !== socket.id);
-    if (room.players.length === 0) {
-      rooms.delete(room.code);
-      return;
-    }
-    room.phase = 'waiting';
-    room.target = null;
-    room.winner = null;
-    room.message = 'Other player disconnected. Waiting.';
-    room.players.forEach((p, i) => p.index = i);
-    emitRoom(room);
+    removePlayerFromRoom(socket);
   });
 });
 

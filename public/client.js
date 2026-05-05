@@ -10,6 +10,8 @@ const lobbyError = document.getElementById('lobbyError');
 const copyRoom = document.getElementById('copyRoom');
 const statusEl = document.getElementById('status');
 const restartBtn = document.getElementById('restartBtn');
+const leaveBtn = document.getElementById('leaveBtn');
+const themeBtn = document.getElementById('themeBtn');
 const pileEl = document.getElementById('pile');
 const ringBtn = document.getElementById('ringBtn');
 const targetText = document.getElementById('targetText');
@@ -20,8 +22,17 @@ let myIndex = null;
 let state = null;
 let selectedPileId = null;
 let dragging = false;
-let localFilled = [new Set(), new Set()];
+let pendingCells = [new Set(), new Set()];
 let lastRoomCode = '';
+
+const savedTheme = localStorage.getItem('x-ring-theme');
+if (savedTheme === 'dark') document.body.classList.add('dark');
+updateThemeButton();
+
+function updateThemeButton() {
+  if (!themeBtn) return;
+  themeBtn.textContent = document.body.classList.contains('dark') ? 'Light' : 'Dark';
+}
 
 const shapeFns = {
   heart: t => {
@@ -84,8 +95,27 @@ makeGrid(1);
 createBtn.onclick = () => socket.emit('createRoom', { name: myName() });
 joinBtn.onclick = () => socket.emit('joinRoom', { name: myName(), roomCode: roomInput.value });
 restartBtn.onclick = () => {
-  localFilled = [new Set(), new Set()];
+  pendingCells = [new Set(), new Set()];
   socket.emit('restart');
+};
+
+leaveBtn.onclick = () => {
+  socket.emit('leaveRoom');
+  state = null;
+  myIndex = null;
+  selectedPileId = null;
+  pendingCells = [new Set(), new Set()];
+  lastRoomCode = '';
+  game.classList.add('hidden');
+  lobby.classList.remove('hidden');
+  statusEl.textContent = 'Waiting...';
+  lobbyError.textContent = '';
+};
+
+themeBtn.onclick = () => {
+  document.body.classList.toggle('dark');
+  localStorage.setItem('x-ring-theme', document.body.classList.contains('dark') ? 'dark' : 'light');
+  updateThemeButton();
 };
 copyRoom.onclick = async () => {
   if (!lastRoomCode) return;
@@ -114,11 +144,12 @@ function fillCell(cell) {
   const player = Number(cell.dataset.player);
   const i = Number(cell.dataset.index);
   if (player !== myIndex) return;
-  if (localFilled[player].has(i)) return;
-  localFilled[player].add(i);
-  cell.classList.add('filled');
-  cell.textContent = 'X';
-  socket.emit('addX', { count: 1 });
+
+  const confirmed = new Set(state.players[player]?.xCells || []);
+  if (confirmed.has(i) || pendingCells[player].has(i)) return;
+
+  pendingCells[player].add(i);
+  socket.emit('addX', { cellIndex: i });
 }
 
 document.addEventListener('pointerdown', e => {
@@ -138,11 +169,13 @@ document.addEventListener('pointermove', e => {
 
 function syncGridCounts(players) {
   players.forEach(p => {
-    const filled = localFilled[p.index];
-    while (filled.size < p.xCount) filled.add(filled.size);
+    const confirmed = new Set(p.xCells || []);
+    pendingCells[p.index] = new Set([...pendingCells[p.index]].filter(i => !confirmed.has(i)));
+
     [...grids[p.index].children].forEach((cell, i) => {
-      cell.classList.toggle('filled', filled.has(i));
-      cell.textContent = filled.has(i) ? 'X' : '';
+      const filled = confirmed.has(i);
+      cell.classList.toggle('filled', filled);
+      cell.textContent = filled ? 'X' : '';
       cell.classList.toggle('locked', !(state && state.phase === 'draw' && myIndex === state.activePlayer && p.index === myIndex));
     });
   });
@@ -304,12 +337,22 @@ socket.on('roomState', next => {
   const previousPhase = state?.phase;
   state = next;
   if (previousTargetId !== state.target?.id || previousPhase !== state.phase) selectedPileId = null;
-  if (!state.players.some(p => p.xCount > 0)) localFilled = [new Set(), new Set()];
+  if (!state.players.some(p => p.xCount > 0)) pendingCells = [new Set(), new Set()];
   render();
 });
 socket.on('errorMessage', msg => {
   lobbyError.textContent = msg;
   if (state) statusEl.textContent = msg;
+});
+
+socket.on('leftRoom', () => {
+  state = null;
+  myIndex = null;
+  selectedPileId = null;
+  pendingCells = [new Set(), new Set()];
+  lastRoomCode = '';
+  game.classList.add('hidden');
+  lobby.classList.remove('hidden');
 });
 
 
