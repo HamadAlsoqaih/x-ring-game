@@ -146,36 +146,57 @@ function fillCell(cell) {
   if (player !== myIndex) return;
 
   const confirmed = new Set(state.players[player]?.xCells || []);
-  if (confirmed.has(i) || pendingCells[player].has(i)) return;
+  if (confirmed.has(i)) return;
 
-  pendingCells[player].add(i);
+  // Do not permanently lock pending cells on the client.
+  // The server is the source of truth and ignores duplicates safely.
   socket.emit('addX', { cellIndex: i });
 }
 
-document.addEventListener('pointerdown', e => {
+function getCellFromPoint(x, y) {
+  const elements = document.elementsFromPoint(x, y);
+  for (const el of elements) {
+    const cell = el.closest?.('.cell');
+    if (cell) return cell;
+  }
+  return null;
+}
+
+function startDrawing(e) {
   const cell = e.target.closest('.cell');
   if (!cell) return;
+  e.preventDefault();
   dragging = true;
+  try { cell.setPointerCapture?.(e.pointerId); } catch (_) {}
   fillCell(cell);
-});
-document.addEventListener('pointerup', () => dragging = false);
-document.addEventListener('pointercancel', () => dragging = false);
-document.addEventListener('pointermove', e => {
+}
+
+function stopDrawing() {
+  dragging = false;
+}
+
+function continueDrawing(e) {
   if (!dragging) return;
-  const el = document.elementFromPoint(e.clientX, e.clientY);
-  const cell = el?.closest?.('.cell');
+  e.preventDefault();
+  const cell = getCellFromPoint(e.clientX, e.clientY);
   if (cell) fillCell(cell);
-});
+}
+
+document.addEventListener('pointerdown', startDrawing, { passive: false });
+document.addEventListener('pointerup', stopDrawing);
+document.addEventListener('pointercancel', stopDrawing);
+document.addEventListener('pointermove', continueDrawing, { passive: false });
 
 function syncGridCounts(players) {
   players.forEach(p => {
     const confirmed = new Set(p.xCells || []);
-    pendingCells[p.index] = new Set([...pendingCells[p.index]].filter(i => !confirmed.has(i)));
+    pendingCells[p.index] = new Set();
 
     [...grids[p.index].children].forEach((cell, i) => {
       const filled = confirmed.has(i);
       cell.classList.toggle('filled', filled);
       cell.textContent = filled ? 'X' : '';
+      cell.disabled = false;
       cell.classList.toggle('locked', !(state && state.phase === 'draw' && myIndex === state.activePlayer && p.index === myIndex));
     });
   });
@@ -198,9 +219,10 @@ function fits(px, py, placed, radius, width, height) {
 function computePileLayout(shape, total) {
   const fn = shapeFns[shape] || shapeFns.spiral;
   const rect = pileEl.getBoundingClientRect();
-  const width = Math.max(rect.width || pileEl.clientWidth || 560, 320);
-  const height = Math.max(rect.height || pileEl.clientHeight || 460, 320);
-  const radius = Math.max(24, Math.min(32, Math.min(width, height) / 11));
+  const width = Math.max(rect.width || pileEl.clientWidth || 560, 300);
+  const height = Math.max(rect.height || pileEl.clientHeight || 460, 340);
+  const areaRadius = Math.sqrt((width * height) / (total * Math.PI)) * 0.54;
+  const radius = Math.max(18, Math.min(30, width / 14, height / 13, areaRadius));
   const placed = [];
   const coords = [];
 
@@ -212,8 +234,8 @@ function computePileLayout(shape, total) {
     let point = null;
 
     const seed = i + 1;
-    const maxRings = 22;
-    const triesPerRing = 18;
+    const maxRings = 34;
+    const triesPerRing = 24;
 
     for (let ring = 0; ring <= maxRings && !point; ring++) {
       const step = ring === 0 ? 0 : radius * 0.62;
@@ -230,8 +252,8 @@ function computePileLayout(shape, total) {
     }
 
     if (!point) {
-      outer: for (let row = radius; row <= height - radius; row += radius * 1.6) {
-        for (let col = radius; col <= width - radius; col += radius * 1.6) {
+      outer: for (let row = radius; row <= height - radius; row += radius * 2.15) {
+        for (let col = radius; col <= width - radius; col += radius * 2.15) {
           if (fits(col, row, placed, radius, width, height)) {
             point = { x: col, y: row };
             break outer;
