@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>X Ring Game</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main class="app">
+    <section id="lobby" class="card lobby">
+      <div class="brand">
+        <div class="logo">✕</div>
+        <div>
+          <h1>X Ring Game</h1>
+          <p>Draw Xs fast. Ring when you find the number.</p>
+        </div>
+      </div>
+      <label>Your name</label>
+      <input id="nameInput" maxlength="18" placeholder="Player name" />
+      <div class="actions">
+        <button id="createBtn">Create Room</button>
+        <div class="joinBox">
+          <input id="roomInput" maxlength="5" placeholder="ROOM" />
+          <button id="joinBtn">Join</button>
+        </div>
+      </div>
+      <p id="lobbyError" class="error"></p>
+    </section>
+
+    <section id="game" class="game hidden">
+      <header class="topbar card">
+        <div>
+          <span class="muted">Room</span>
+          <button id="copyRoom" class="roomCode">-----</button>
+        </div>
+        <div id="status" class="status">Waiting...</div>
+        <button id="restartBtn" class="ghost">Restart</button>
+      </header>
+
+      <section class="scoreboard">
+        <article id="p0Card" class="playerCard card">
+          <div class="playerHead"><h2>Player 1</h2><span class="badge">0/54</span></div>
+          <div id="grid0" class="xgrid"></div>
+        </article>
+
+        <article class="pileCard card">
+          <div class="pileHeader">
+            <div>
+              <h2>Number Pile</h2>
+              <p id="targetText">Choose a number to start.</p>
+            </div>
+            <button id="ringBtn" class="ring" disabled aria-label="Ring button">🔔</button>
+          </div>
+          <div id="pile" class="pile"></div>
+          <p class="hint">Searcher: press the ring, then click the correct number.</p>
+        </article>
+
+        <article id="p1Card" class="playerCard card">
+          <div class="playerHead"><h2>Player 2</h2><span class="badge">0/54</span></div>
+          <div id="grid1" class="xgrid"></div>
+        </article>
+      </section>
+    </section>
+  </main>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="client.js"></script>
+</body>
+</html>
