@@ -45,6 +45,7 @@ function publicRoom(room) {
     phase: room.phase,
     winner: room.winner,
     message: room.message,
+    chat: room.chat || [],
   };
 }
 
@@ -97,6 +98,7 @@ function removePlayerFromRoom(socket) {
   room.activePlayer = 0;
   room.message = 'Other player left. Waiting for a new player.';
   room.players.forEach((p, i) => { p.index = i; p.xCells = new Set(); });
+  room.chat = [];
   resetRoom(room);
   emitRoom(room);
 }
@@ -114,7 +116,8 @@ io.on('connection', socket => {
       target: null,
       phase: 'waiting',
       winner: null,
-      message: 'Waiting for player 2.'
+      message: 'Waiting for player 2.',
+      chat: []
     };
     rooms.set(roomCode, room);
     socket.join(roomCode);
@@ -189,6 +192,29 @@ io.on('connection', socket => {
       room.phase = 'choose';
       room.message = `${room.players[room.activePlayer].name} chooses a number.`;
     }
+    emitRoom(room);
+  });
+
+  socket.on('chatMessage', ({ text }) => {
+    const room = getRoom(socket);
+    if (!room) return;
+
+    const player = room.players.find(p => p.id === socket.id);
+    if (!player) return;
+
+    const cleanText = String(text || '').replace(/\s+/g, ' ').trim().slice(0, 160);
+    if (!cleanText) return;
+
+    room.chat ||= [];
+    room.chat.push({
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      playerId: socket.id,
+      name: player.name,
+      text: cleanText,
+      time: Date.now()
+    });
+
+    if (room.chat.length > 50) room.chat = room.chat.slice(-50);
     emitRoom(room);
   });
 

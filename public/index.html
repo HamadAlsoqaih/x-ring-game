@@ -15,6 +15,7 @@
           <h1>X Ring Game</h1>
           <p>Draw Xs fast. Tap the number, then ring.</p>
         </div>
+        <button id="lobbyThemeBtn" class="ghost themeMini" type="button">Dark</button>
       </div>
       <label>Your name</label>
       <input id="nameInput" maxlength="18" placeholder="Player name" />
@@ -64,6 +65,18 @@
           <div class="playerHead"><h2>Player 2</h2><span class="badge">0/54</span></div>
           <div id="grid1" class="xgrid"></div>
         </article>
+      </section>
+
+      <section class="chatCard card">
+        <div class="chatHeader">
+          <h2>Room Chat</h2>
+          <p class="muted">Messages are only visible inside this room.</p>
+        </div>
+        <div id="chatMessages" class="chatMessages" aria-live="polite"></div>
+        <form id="chatForm" class="chatForm">
+          <input id="chatInput" maxlength="160" placeholder="Type a message..." autocomplete="off" />
+          <button type="submit">Send</button>
+        </form>
       </section>
     </section>
   </main>

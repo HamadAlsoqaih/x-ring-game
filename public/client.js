@@ -12,6 +12,10 @@ const statusEl = document.getElementById('status');
 const restartBtn = document.getElementById('restartBtn');
 const leaveBtn = document.getElementById('leaveBtn');
 const themeBtn = document.getElementById('themeBtn');
+const lobbyThemeBtn = document.getElementById('lobbyThemeBtn');
+const chatMessages = document.getElementById('chatMessages');
+const chatForm = document.getElementById('chatForm');
+const chatInput = document.getElementById('chatInput');
 const pileEl = document.getElementById('pile');
 const ringBtn = document.getElementById('ringBtn');
 const targetText = document.getElementById('targetText');
@@ -21,7 +25,6 @@ const grids = [document.getElementById('grid0'), document.getElementById('grid1'
 let myIndex = null;
 let state = null;
 let selectedPileId = null;
-let dragging = false;
 let pendingCells = [new Set(), new Set()];
 let lastRoomCode = '';
 
@@ -30,8 +33,15 @@ if (savedTheme === 'dark') document.body.classList.add('dark');
 updateThemeButton();
 
 function updateThemeButton() {
-  if (!themeBtn) return;
-  themeBtn.textContent = document.body.classList.contains('dark') ? 'Light' : 'Dark';
+  const label = document.body.classList.contains('dark') ? 'Light' : 'Dark';
+  if (themeBtn) themeBtn.textContent = label;
+  if (lobbyThemeBtn) lobbyThemeBtn.textContent = label;
+}
+
+function toggleTheme() {
+  document.body.classList.toggle('dark');
+  localStorage.setItem('x-ring-theme', document.body.classList.contains('dark') ? 'dark' : 'light');
+  updateThemeButton();
 }
 
 const shapeFns = {
@@ -112,11 +122,8 @@ leaveBtn.onclick = () => {
   lobbyError.textContent = '';
 };
 
-themeBtn.onclick = () => {
-  document.body.classList.toggle('dark');
-  localStorage.setItem('x-ring-theme', document.body.classList.contains('dark') ? 'dark' : 'light');
-  updateThemeButton();
-};
+themeBtn.onclick = toggleTheme;
+lobbyThemeBtn.onclick = toggleTheme;
 copyRoom.onclick = async () => {
   if (!lastRoomCode) return;
   await navigator.clipboard?.writeText(lastRoomCode);
@@ -153,39 +160,16 @@ function fillCell(cell) {
   socket.emit('addX', { cellIndex: i });
 }
 
-function getCellFromPoint(x, y) {
-  const elements = document.elementsFromPoint(x, y);
-  for (const el of elements) {
-    const cell = el.closest?.('.cell');
-    if (cell) return cell;
-  }
-  return null;
-}
-
-function startDrawing(e) {
+function markSingleCell(e) {
   const cell = e.target.closest('.cell');
   if (!cell) return;
   e.preventDefault();
-  dragging = true;
-  try { cell.setPointerCapture?.(e.pointerId); } catch (_) {}
   fillCell(cell);
 }
 
-function stopDrawing() {
-  dragging = false;
-}
-
-function continueDrawing(e) {
-  if (!dragging) return;
-  e.preventDefault();
-  const cell = getCellFromPoint(e.clientX, e.clientY);
-  if (cell) fillCell(cell);
-}
-
-document.addEventListener('pointerdown', startDrawing, { passive: false });
-document.addEventListener('pointerup', stopDrawing);
-document.addEventListener('pointercancel', stopDrawing);
-document.addEventListener('pointermove', continueDrawing, { passive: false });
+// Tap-only rule: one tap/click fills one X.
+// Holding or dragging across the sheet will not fill extra cells.
+document.addEventListener('pointerdown', markSingleCell, { passive: false });
 
 function syncGridCounts(players) {
   players.forEach(p => {
@@ -305,6 +289,37 @@ function handleNumberClick(item, btn) {
   }
 }
 
+function renderChat() {
+  if (!chatMessages || !state) return;
+  chatMessages.innerHTML = '';
+  const messages = state.chat || [];
+  messages.forEach(msg => {
+    const row = document.createElement('div');
+    row.className = `chatMsg ${msg.playerId === socket.id ? 'mine' : ''}`;
+
+    const meta = document.createElement('div');
+    meta.className = 'chatMeta';
+    meta.textContent = msg.name || 'Player';
+
+    const bubble = document.createElement('div');
+    bubble.className = 'chatBubble';
+    bubble.textContent = msg.text || '';
+
+    row.appendChild(meta);
+    row.appendChild(bubble);
+    chatMessages.appendChild(row);
+  });
+  chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+chatForm.addEventListener('submit', e => {
+  e.preventDefault();
+  const text = chatInput.value.trim();
+  if (!text || !state) return;
+  socket.emit('chatMessage', { text });
+  chatInput.value = '';
+});
+
 function renderWinner() {
   document.querySelector('.winBanner')?.remove();
   if (!state || state.phase !== 'ended') return;
@@ -351,6 +366,7 @@ function render() {
 
   syncGridCounts(state.players);
   renderPile();
+  renderChat();
   renderWinner();
 }
 

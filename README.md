@@ -7,9 +7,11 @@ A real-time 2-player online game with room codes.
 - Two players join the same room.
 - There is a 9x6 sheet for each player.
 - The active player chooses a number from the pile.
-- The active player draws X marks on their own sheet as fast as possible by tapping/clicking/dragging.
+- The active player draws X marks on their own sheet as fast as possible by tapping/clicking one cell at a time. Holding or dragging does not fill extra X marks.
 - The other player searches the pile.
-- The searcher must tap the correct number first, then press the ring button to confirm.
+- The searcher must tap/select the correct number first, then press the ring button to confirm.
+- Players can use the in-room chat while playing.
+- Dark/light mode is available in the lobby and room.
 - The turn switches when the correct number is confirmed.
 - After all 30 numbers are used, the player with more X marks wins.
 - If a player fills all 54 squares, the game ends immediately.
